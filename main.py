@@ -1,6 +1,8 @@
-#import numpy as np
+import sys
 import pandas as pd
 import csv
+sys.setrecursionlimit(1000)
+
 
 class Graph:
 
@@ -9,89 +11,68 @@ class Graph:
         self.V = V #Vertices
         self.adj = [[] for i in range(self.V)] #adjency lists
         self.Time = 0
-        self.b_count = 0
+        self.bridges = 0
+        self.components = 1
+        self.component_id = [self.V]
 
-    def NumberOfconnectedComponents(self):
+
+        self.low = [self.V]
+        self.pre = [self.V]
+        cnt=0
+
+    def FindConnectedComponents(self):
 
         #mark all the vertices as not visited
         visited = [False for i in range(self.V)]
 
-        #nb of connected components counter
-        count = 1
+        self.component_id = [-1 for i in range(self.V)]
+
+        currentComponentID = 0
 
         #explore the component if its not visited already
         for v in range(self.V):
             if not visited[v]:
-                self.dfs(v, visited)
-                count+=1
-        return count
+                currentComponentID = currentComponentID+1
+                self.dfs(v, visited, currentComponentID)
+                self.components+=1
+        return self.component_id
 
-    def dfs(self, v, visited):
+    def dfs(self, v, visited, currentComponentID):
+        #if visited[v]: return #node already visted
         #mark the current node as visited
         visited[v] = True
+        self.component_id[v] = currentComponentID
 
         #visit the nodes one by one
-        for i in self.adj[v]:
-            if not visited[i]:
-                self.dfs(i, visited)    
+        for w in self.adj[v]:
+            if not visited[w]:
+                self.dfs(w, visited, currentComponentID)    
     
+    def isConnected(self, v, w):
+        return self.component_id[v] == self.component_id[w]
+
     def addEdge(self, v, w):
-        if w not in self.adj[v] and v not in self.adj[w]: #gestion des doublons
+        if w not in self.adj[v] and v not in self.adj[w] and v!=w: #gestion des doublons
             self.adj[v].append(w)
             self.adj[w].append(v)
+    def removeEdge(self, v, w):
+        if w in self.adj[w] and w in self.adj[v]:
+            self.adj[v].remove(w)
+            self.adj[w].remove(v)
 
-    def G4G_bridgeUtil(self,u, visited, parent, low, disc): 
-    
-            # Mark the current node as visited and print it 
-            visited[u]= True
-    
-            # Initialize discovery time and low value 
-            disc[u] = self.Time 
-            low[u] = self.Time 
-            self.Time += 1
-    
-            #Recur for all the vertices adjacent to this vertex 
-            for v in self.adj[u]: 
-                # If v is not visited yet, then make it a child of u 
-                # in DFS tree and recur for it 
-                if visited[v] == False : 
-                    parent[v] = u 
-                    self.G4G_bridgeUtil(v, visited, parent, low, disc) 
-    
-                    # Check if the subtree rooted with v has a connection to 
-                    # one of the ancestors of u 
-                    low[u] = min(low[u], low[v]) 
-    
-    
-                    ''' If the lowest vertex reachable from subtree 
-                    under v is below u in DFS tree, then u-v is 
-                    a bridge'''
-                    if low[v] > disc[u]: 
-                        #print ("%d %d" %(u,v)) 
-                        self.b_count+=1
-        
-                        
-                elif v != parent[u]: # Update low value of u for parent function calls. 
-                    low[u] = min(low[u], disc[v]) 
-    
-    # DFS based function to find all bridges. It uses recursive 
-    # function bridgeUtil() 
-    def G4G_bridge(self): 
-
-        # Mark all the vertices as not visited and Initialize parent and visited,  
-        # and ap(articulation point) arrays 
-        visited = [False] * (self.V) 
-        disc = [float("Inf")] * (self.V) 
-        low = [float("Inf")] * (self.V) 
-        parent = [-1] * (self.V) 
-
-        # Call the recursive helper function to find bridges 
-        # in DFS tree rooted with vertex 'i' 
-        for i in range(self.V): 
-            if visited[i] == False: 
-                self.G4G_bridgeUtil(i, visited, parent, low, disc) 
-        
-        return self.b_count
+    def bridge(self): #naive implementation with connected components
+        #print("adjency list of 13 "+ str(self.adj[13]))
+        for v in range(0, self.V):
+            for w in self.adj[v]:
+                #print("removing edge "+str(v)+"-"+str(w))
+                self.removeEdge(v, w)
+                self.FindConnectedComponents()
+                if not self.isConnected(v, w): #if after removal, they can't reach each other, then it's a bridge
+                    self.bridges+=1
+                    print("Bridge Found between "+str(v)+"-"+str(w))
+                    print("number of bridges so far: "+ str(self.bridges))
+                self.addEdge(v, w)
+                #print("re-adding edge "+str(v)+"-"+str(w))
 
 def getUndirectedGraphFromDataframe(df):
     G = Graph(35591) #create new graph instance with number of Non empty rows as vertices number
@@ -107,9 +88,10 @@ def basic_properties(df):
     Output: (number_of_different_components, number_of_bridges, number_of_local_bridges)
     """
     G = getUndirectedGraphFromDataframe(df)
+    G.FindConnectedComponents()
 
 
-    return (G.NumberOfconnectedComponents(), G.G4G_bridge(), 0)  # replace with your own code
+    return (G.components, G.bridge(), 0)  # replace with your own code
 
 
 def total_triadic_closures(df):
