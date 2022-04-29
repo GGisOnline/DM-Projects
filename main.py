@@ -1,19 +1,103 @@
 #import numpy as np
 import pandas as pd
 import csv
-import graph as g
 
+class Graph:
 
-df = pd.read_csv('data.csv') #Si tu veux mettre le try/catch, c'est ici non?
-df.head()
+    def __init__(self, V):
 
+        self.V = V #Vertices
+        self.adj = [[] for i in range(self.V)] #adjency lists
+        self.Time = 0
+        self.b_count = 0
 
-def getUndirectedGraphFromDataframe(df): 
-    G = g(df.count())
+    def NumberOfconnectedComponents(self):
+
+        #mark all the vertices as not visited
+        visited = [False for i in range(self.V)]
+
+        #nb of connected components counter
+        count = 1
+
+        #explore the component if its not visited already
+        for v in range(self.V):
+            if not visited[v]:
+                self.dfs(v, visited)
+                count+=1
+        return count
+
+    def dfs(self, v, visited):
+        #mark the current node as visited
+        visited[v] = True
+
+        #visit the nodes one by one
+        for i in self.adj[v]:
+            if not visited[i]:
+                self.dfs(i, visited)    
+    
+    def addEdge(self, v, w):
+        if w not in self.adj[v] and v not in self.adj[w]: #gestion des doublons
+            self.adj[v].append(w)
+            self.adj[w].append(v)
+
+    def G4G_bridgeUtil(self,u, visited, parent, low, disc): 
+    
+            # Mark the current node as visited and print it 
+            visited[u]= True
+    
+            # Initialize discovery time and low value 
+            disc[u] = self.Time 
+            low[u] = self.Time 
+            self.Time += 1
+    
+            #Recur for all the vertices adjacent to this vertex 
+            for v in self.adj[u]: 
+                # If v is not visited yet, then make it a child of u 
+                # in DFS tree and recur for it 
+                if visited[v] == False : 
+                    parent[v] = u 
+                    self.G4G_bridgeUtil(v, visited, parent, low, disc) 
+    
+                    # Check if the subtree rooted with v has a connection to 
+                    # one of the ancestors of u 
+                    low[u] = min(low[u], low[v]) 
+    
+    
+                    ''' If the lowest vertex reachable from subtree 
+                    under v is below u in DFS tree, then u-v is 
+                    a bridge'''
+                    if low[v] > disc[u]: 
+                        #print ("%d %d" %(u,v)) 
+                        self.b_count+=1
+        
+                        
+                elif v != parent[u]: # Update low value of u for parent function calls. 
+                    low[u] = min(low[u], disc[v]) 
+    
+    # DFS based function to find all bridges. It uses recursive 
+    # function bridgeUtil() 
+    def G4G_bridge(self): 
+
+        # Mark all the vertices as not visited and Initialize parent and visited,  
+        # and ap(articulation point) arrays 
+        visited = [False] * (self.V) 
+        disc = [float("Inf")] * (self.V) 
+        low = [float("Inf")] * (self.V) 
+        parent = [-1] * (self.V) 
+
+        # Call the recursive helper function to find bridges 
+        # in DFS tree rooted with vertex 'i' 
+        for i in range(self.V): 
+            if visited[i] == False: 
+                self.G4G_bridgeUtil(i, visited, parent, low, disc) 
+        
+        return self.b_count
+
+def getUndirectedGraphFromDataframe(df):
+    G = Graph(35591) #create new graph instance with number of Non empty rows as vertices number
     for row in df.itertuples():
         G.addEdge(row[1], row[2]) #add edge from source to target
     
-    #todo: j'ai pas check les doublons du coup je sais pas si c'est bon
     return G
 
 
@@ -22,10 +106,10 @@ def basic_properties(df):
     Input: Pandas dataframe as described above representing a graph
     Output: (number_of_different_components, number_of_bridges, number_of_local_bridges)
     """
-    G = g.getUndirectedGraphFromDataframe(df)
+    G = getUndirectedGraphFromDataframe(df)
 
 
-    return (G.numberOfConnectedComponents(), 0, 0)  # replace with your own code
+    return (G.NumberOfconnectedComponents(), G.G4G_bridge(), 0)  # replace with your own code
 
 
 def total_triadic_closures(df):
@@ -64,6 +148,17 @@ def pagerank(dataframe):
     Reminder: Take into account that the graph is directed now.
     """
     return (0, 0.0)  # replace with your own code
+
+if __name__ == "__main__":
+    df = pd.read_csv('data.csv')
+    df.head()
+
+    print("TASK 1")
+    print("Number of components: ", basic_properties(df)[0])
+    print("Number of bridges: ", basic_properties(df)[1])
+    print("Number of local bridges: ", basic_properties(df)[2])
+
+
 
 
 
