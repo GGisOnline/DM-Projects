@@ -1,7 +1,8 @@
 import sys
 import pandas as pd
 import csv
-sys.setrecursionlimit(1000)
+from collections import defaultdict
+sys.setrecursionlimit(2000)
 
 
 class Graph:
@@ -9,78 +10,139 @@ class Graph:
     def __init__(self, V):
 
         self.V = V #Vertices
-        self.adj = [[] for i in range(self.V)] #adjency lists
+        self.adj = defaultdict(list)
         self.Time = 0
         self.bridges = 0
+        self.bridges_list = []
         self.components = 1
         self.component_id = [self.V]
-
-
-        self.low = [self.V]
-        self.pre = [self.V]
-        cnt=0
+        self.connected_components = []
+        self.edges = []
 
     def FindConnectedComponents(self):
+        self.connected_components = []
 
         #mark all the vertices as not visited
         visited = [False for i in range(self.V)]
 
         self.component_id = [-1 for i in range(self.V)]
 
-        currentComponentID = 0
-
         #explore the component if its not visited already
         for v in range(self.V):
-            if not visited[v]:
-                currentComponentID = currentComponentID+1
-                self.dfs(v, visited, currentComponentID)
-                self.components+=1
-        return self.component_id
+            if visited[v] == False:
+                temp = []
+                self.connected_components.append(self.dfs(temp, v, visited))
+        return self.connected_components
 
-    def dfs(self, v, visited, currentComponentID):
+    def dfs(self, temp, v, visited):
         #if visited[v]: return #node already visted
         #mark the current node as visited
         visited[v] = True
-        self.component_id[v] = currentComponentID
+        #self.component_id[v] = currentComponentID
+        temp.append(v)
 
         #visit the nodes one by one
         for w in self.adj[v]:
-            if not visited[w]:
-                self.dfs(w, visited, currentComponentID)    
+            if visited[w] == False:
+                temp = self.dfs(temp, w, visited)
+        return temp
     
     def isConnected(self, v, w):
-        return self.component_id[v] == self.component_id[w]
+        for component in self.connected_components:
+            if v in component:
+                if w not in component: 
+                    return False
+                elif w in component:
+                    return True
+
+        return False
 
     def addEdge(self, v, w):
         if w not in self.adj[v] and v not in self.adj[w] and v!=w: #gestion des doublons
             self.adj[v].append(w)
             self.adj[w].append(v)
+            self.edges.append([v, w])
     def removeEdge(self, v, w):
-        if w in self.adj[w] and w in self.adj[v]:
+        if v in self.adj[w] and w in self.adj[v]:
             self.adj[v].remove(w)
             self.adj[w].remove(v)
+            self.edges.remove([v, w])
+
 
     def bridge(self): #naive implementation with connected components
-        #print("adjency list of 13 "+ str(self.adj[13]))
+        tried_bridges = []
         for v in range(0, self.V):
             for w in self.adj[v]:
-                #print("removing edge "+str(v)+"-"+str(w))
+                if [v, w] in tried_bridges or [w, v] in tried_bridges:
+                    print("Edge ["+str(v)+"-"+str(w)+"] has already been visited")
+                    print(tried_bridges)
+                    continue
+                tried_bridges.append([v, w])
+                print("trying edge ["+str(v)+"-"+str(w)+"]")
+                
+                self.FindConnectedComponents()
                 self.removeEdge(v, w)
                 self.FindConnectedComponents()
                 if not self.isConnected(v, w): #if after removal, they can't reach each other, then it's a bridge
+                    self.bridges_list.append([v, w])
                     self.bridges+=1
-                    print("Bridge Found between "+str(v)+"-"+str(w))
-                    print("number of bridges so far: "+ str(self.bridges))
+                    print("["+str(v)+"-"+str(w)+"] is a bridge ! Bridges so far: "+ str(self.bridges))
                 self.addEdge(v, w)
-                #print("re-adding edge "+str(v)+"-"+str(w))
+
+        return self.bridges
+
+    def isBridge(self, visited, current, a, b):
+        visited[current] = True
+        print(visited[current])
+        for w in self.adj[current]:
+            if visited[w] or (w == a and b == current):
+                continue
+            else:
+                print("statement 1")
+                if w == a:
+                    
+                    return False
+                if not self.isBridge(visited, w, a, b):
+                    return False
+        return True
+
+
+    def isBridge2(self, v, w):
+        cc = len(self.FindConnectedComponents())
+        self.removeEdge(v, w)
+        new_cc = len(self.FindConnectedComponents())
+        if(cc != new_cc): 
+            self.addEdge(v, w)
+            return True
+        else: 
+            self.addEdge(v, w)
+            return False
+
+
+    def findBridges(self):
+        self.bridges_list = []
+        visited = []
+        print(len(self.edges))
+        for edge in self.edges:
+            v, w = edge[0], edge[1]
+            if [v,w] in visited or [w, v] in visited: 
+                print("["+str(v)+"-"+str(w)+"] has already been visited")
+                continue
+            
+            if self.isBridge2(v, w):
+                print("["+str(v)+"-"+str(w)+"] is a Bridge")
+                self.bridges_list.append([v, w])
+            else:
+                print("["+str(v)+"-"+str(w)+"] is not a Bridge")
+            visited.append([v, w])
+        return self.bridges_list
 
 def getUndirectedGraphFromDataframe(df):
     G = Graph(35591) #create new graph instance with number of Non empty rows as vertices number
     for row in df.itertuples():
         G.addEdge(row[1], row[2]) #add edge from source to target
-    
+    print(len(G.edges))
     return G
-
 
 def basic_properties(df):
     """
@@ -88,10 +150,10 @@ def basic_properties(df):
     Output: (number_of_different_components, number_of_bridges, number_of_local_bridges)
     """
     G = getUndirectedGraphFromDataframe(df)
-    G.FindConnectedComponents()
+    G.findBridges()
 
 
-    return (G.components, G.bridge(), 0)  # replace with your own code
+    return (len(G.FindConnectedComponents())+1, len(G.bridges_list), 0)  # replace with your own code
 
 
 def total_triadic_closures(df):
