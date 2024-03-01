@@ -83,6 +83,8 @@ def test_bridges_1():
     print()
         
 
+
+
 if __name__ == "__main__":
     test_isBridge()
     print("Everything passed")

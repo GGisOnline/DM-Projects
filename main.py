@@ -201,8 +201,3 @@ if __name__ == "__main__":
     print("Number of components: ", basic_properties(df)[0])
     print("Number of bridges: ", basic_properties(df)[1])
     print("Number of local bridges: ", basic_properties(df)[2])
-
-
-
-
-
